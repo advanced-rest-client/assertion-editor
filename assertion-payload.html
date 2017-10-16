@@ -1,0 +1,184 @@
+<!--
+@license
+Copyright 2017 The Advanced REST client authors <arc@mulesoft.com>
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../paper-listbox/paper-listbox.html">
+<link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="assertion-styles.html">
+
+<dom-module id="assertion-payload">
+  <template>
+    <style include="assertion-styles">
+    :host {
+      position: relative;
+    }
+    </style>
+    <paper-dropdown-menu label="Condition" no-label-float class="text-equality-selector input" on-selected-item-changed="_conditionChanged">
+      <paper-listbox class="dropdown-content" selected="{{conditions.0.value}}" attr-for-selected="data-search-type">
+        <paper-item data-search-type="path">Path</paper-item>
+        <paper-item data-search-type="equals">Equals</paper-item>
+        <paper-item data-search-type="not-equals">Not equals</paper-item>
+        <paper-item data-search-type="contains">Contains text</paper-item>
+        <paper-item data-search-type="not-contains">Not contains text</paper-item>
+        <paper-item data-search-type="is-empty">Is empty</paper-item>
+        <paper-item data-search-type="is-not-empty">Is not empty</paper-item>
+        <paper-item data-search-type="starts-with">Starts with</paper-item>
+        <paper-item data-search-type="ends-with">Ends with</paper-item>
+        <paper-item data-search-type="regexp">Regular expression</paper-item>
+      </paper-listbox>
+    </paper-dropdown-menu>
+    <template is="dom-if" if="[[isPathCondition]]" restamp="true">
+      <paper-input class="input" label="Path to a value" no-label-float value="{{conditions.1.value}}" type="string" required auto-validate pattern="\S*" error-message="Path is not valid"></paper-input>
+      <paper-dropdown-menu label="Condition" no-label-float class="text-equality-selector input">
+        <paper-listbox class="dropdown-content" selected="{{conditions.2.value}}" attr-for-selected="data-search">
+          <paper-item data-search="equals">Equals</paper-item>
+          <paper-item data-search="not-equals">Not equals</paper-item>
+          <paper-item data-search="contains">Contains</paper-item>
+          <paper-item data-search="not-contains">Not contains</paper-item>
+          <paper-item data-search="starts-with">Starts with</paper-item>
+          <paper-item data-search="ends-with">Ends with</paper-item>
+          <paper-item data-search="regexp">Regular expression</paper-item>
+        </paper-listbox>
+      </paper-dropdown-menu>
+      <paper-input class="input" label="Search value" no-label-float value="{{conditions.3.value}}" type="text" error-message="A value is required" required auto-validate></paper-input>
+    </template>
+    <template is="dom-if" if="[[isSearch]]" restamp="true">
+      <paper-input class="input" label="Search value" no-label-float value="{{conditions.1.value}}" type="text" error-message="A value is required" required auto-validate></paper-input>
+    </template>
+  </template>
+  <script>
+    Polymer({
+      is: 'assertion-payload',
+      properties: {
+        // List of conditions
+        conditions: {
+          type: Array,
+          notify: true,
+          observer: '_conditionsChanged'
+        },
+        // True to display editor fields for `path` type
+        isPathCondition: {
+          type: Boolean,
+          observer: '_isPathConditionChanged'
+        },
+        // True to display editor fields for `value-of` type
+        isSearch: {
+          type: Boolean,
+          observer: '_isSearchChanged'
+        }
+      },
+
+      _conditionsChanged: function(value) {
+        if (!value || !value.length) {
+          this.set('conditions', [{
+            type: 'content-search',
+            value: ''
+          }, {
+            type: 'value',
+            value: ''
+          }]);
+        }
+      },
+      /**
+       * Updates the editor UI depending on initial condition.
+       * For `value-of` condition it shows header name selector and value
+       * conditions.
+       * For `contains` and `not-contains` conditions it only shows header name
+       * selector.
+       * Otherwise it hides additional conditions.
+       */
+      _conditionChanged: function(e) {
+        if (!e.detail.value) {
+          return;
+        }
+        var type = e.detail.value.dataset.searchType;
+        switch (type) {
+          case 'path':
+            if (this.isSearch) {
+              this.isSearch = false;
+            }
+            this.isPathCondition = true;
+          break;
+          case 'is-empty':
+          case 'is-not-empty':
+            if (this.isPathCondition) {
+              this.isPathCondition = false;
+            }
+            if (this.isSearch) {
+              this.isSearch = false;
+            }
+            this.splice('conditions', 1);
+          break;
+          default:
+            if (this.isPathCondition) {
+              this.isPathCondition = false;
+            }
+            this.isSearch = true;
+        }
+      },
+      /**
+       * Adds or subtract conditions depending on `path` state.
+       */
+      _isPathConditionChanged: function(value) {
+        if (!this.conditions) {
+          return;
+        }
+        if (value) {
+          if (this.conditions.length === 1) {
+            this.push('conditions', {
+              type: 'content-search',
+              value: ''
+            });
+          }
+          if (this.conditions.length === 2) {
+            this.push('conditions', {
+              type: 'content-search',
+              value: ''
+            });
+            this.push('conditions', {
+              type: 'value',
+              value: ''
+            });
+          }
+        } else {
+          if (this.conditions.length === 4) {
+            if (this.isSearch) {
+              this.splice('conditions', 2);
+            }
+          }
+        }
+      },
+
+      _isSearchChanged: function(value) {
+        if (!this.conditions) {
+          return;
+        }
+        if (value) {
+          if (this.conditions.length === 1) {
+            this.push('conditions', {
+              type: 'value',
+              value: ''
+            });
+          }
+        } else {
+          if (this.conditions.length !== 1) {
+            this.splice('conditions', 1);
+          }
+        }
+      }
+    });
+  </script>
+</dom-module>

@@ -1,0 +1,224 @@
+<!--
+@license
+Copyright 2017 The Advanced REST client authors <arc@mulesoft.com>
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../paper-listbox/paper-listbox.html">
+<link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../paper-autocomplete/paper-autocomplete.html">
+<link rel="import" href="assertion-styles.html">
+
+<dom-module id="assertion-headers">
+  <template>
+    <style include="assertion-styles">
+    :host {
+      position: relative;
+    }
+    </style>
+    <paper-dropdown-menu label="Condition" no-label-float class="text-equality-selector input" on-selected-item-changed="_conditionChanged">
+      <paper-listbox class="dropdown-content" selected="{{conditions.0.value}}" attr-for-selected="data-search-type">
+        <paper-item data-search-type="value-of">Value of</paper-item>
+        <paper-item data-search-type="contains">Contains header</paper-item>
+        <paper-item data-search-type="not-contains">Not contains header</paper-item>
+        <paper-item data-search-type="is-empty">Are empty</paper-item>
+        <paper-item data-search-type="is-not-empty">Are not empty</paper-item>
+      </paper-listbox>
+    </paper-dropdown-menu>
+    <template is="dom-if" if="[[isHeaderName]]" restamp="true">
+      <paper-input class="input" label="Header name" no-label-float value="{{conditions.1.value}}" type="string" required auto-validate on-focus="_headerNameFocus" pattern="\S*" error-message="Header name is not valid"></paper-input>
+    </template>
+    <template is="dom-if" if="[[isValueOf]]" restamp="true">
+      <paper-dropdown-menu label="Condition" no-label-float class="text-equality-selector input">
+        <paper-listbox class="dropdown-content" selected="{{conditions.2.value}}" attr-for-selected="data-search">
+          <paper-item data-search="equals">Equals</paper-item>
+          <paper-item data-search="not-equals">Not equals</paper-item>
+          <paper-item data-search="contains">Contains</paper-item>
+          <paper-item data-search="not-contains">Not contains</paper-item>
+          <paper-item data-search="starts-with">Starts with</paper-item>
+          <paper-item data-search="ends-with">Ends with</paper-item>
+          <paper-item data-search="regexp">Regular expression</paper-item>
+        </paper-listbox>
+      </paper-dropdown-menu>
+      <paper-input class="input" label="Search value" no-label-float value="{{conditions.3.value}}" type="text" error-message="A value is required" required auto-validate></paper-input>
+    </template>
+    <paper-autocomplete open-on-focus on-query="_queryHeaderName" on-selected="_onHeaderNameSelected" open-on-focus></paper-autocomplete>
+  </template>
+  <script>
+    Polymer({
+      is: 'assertion-headers',
+      properties: {
+        // List of conditions
+        conditions: {
+          type: Array,
+          notify: true,
+          observer: '_conditionsChanged'
+        },
+        // True to display editor fields for `contains` type
+        isHeaderName: {
+          type: Boolean,
+          observer: '_isHeaderNameChanged'
+        },
+        // True to display editor fields for `value-of` type
+        isValueOf: {
+          type: Boolean,
+          observer: '_isValueOfChanged'
+        }
+      },
+
+      _conditionsChanged: function(value) {
+        if (!value || !value.length) {
+          this.set('conditions', [{
+            type: 'content-search',
+            value: ''
+          }, {
+            type: 'value',
+            value: ''
+          }]);
+        }
+      },
+      /**
+       * Updates the editor UI depending on initial condition.
+       * For `value-of` condition it shows header name selector and value
+       * conditions.
+       * For `contains` and `not-contains` conditions it only shows header name
+       * selector.
+       * Otherwise it hides additional conditions.
+       */
+      _conditionChanged: function(e) {
+        if (!e.detail.value) {
+          return;
+        }
+        var type = e.detail.value.dataset.searchType;
+        switch (type) {
+          case 'value-of':
+            this.isHeaderName = true;
+            this.isValueOf = true;
+          break;
+          case 'contains':
+          case 'not-contains':
+            if (this.isValueOf) {
+              this.isValueOf = false;
+            }
+            this.isHeaderName = true;
+          break;
+          default:
+            if (this.isValueOf) {
+              this.isValueOf = false;
+            }
+            if (this.isHeaderName) {
+              this.isHeaderName = false;
+            }
+        }
+      },
+      /**
+       * Adds or subtract conditions depending on `value-of` state.
+       * It adds 2 more conditions if current base condition is `value-of`.
+       */
+      _isValueOfChanged: function(value) {
+        if (!this.conditions) {
+          return;
+        }
+        if (value) {
+          if (this.conditions.length === 2) {
+            this.push('conditions', {
+              type: 'content-search',
+              value: 'equals'
+            });
+            this.push('conditions', {
+              type: 'value',
+              value: ''
+            });
+          }
+        } else {
+          if (this.conditions.length === 4) {
+            this.splice('conditions', 2);
+          }
+        }
+      },
+
+      _isHeaderNameChanged: function(value) {
+        if (!this.conditions) {
+          return;
+        }
+        if (value) {
+          if (this.conditions.length === 1) {
+            this.push('conditions', {
+              type: 'value',
+              value: ''
+            });
+          }
+        } else {
+          if (this.conditions.length !== 1) {
+            this.splice('conditions', 1);
+          }
+        }
+      },
+
+      // Handler for header name field focus
+      _headerNameFocus: function(e) {
+        var autocomplete = this.$$('paper-autocomplete');
+        if (!autocomplete.target) {
+          autocomplete.target = e.target;
+          autocomplete.positionTarget = e.target;
+          autocomplete._previousQuery = '';
+          this._queryHeaderName();
+        }
+      },
+
+      /**
+       * Handler for autosuggestion element.
+       * It sends an event to query the definitions element for suggestions.
+       *
+       * Note, this element do not provide `arc-definitions` element and it
+       * must be set somewhere in the DOM.
+       */
+      _queryHeaderName: function() {
+        var value = this.conditions[1].value;
+        var suggestions = this._queryHeaderNameSuggestions(value);
+        var autocomplete = this.$$('paper-autocomplete');
+        autocomplete.source = suggestions.map(function(item) {
+          return item.key;
+        });
+      },
+
+      /**
+       * Queries the `arc-definition` element for a header.
+       *
+       * @param {string} q Name of the header.
+       * @return {array} List of matched headers names.
+       */
+      _queryHeaderNameSuggestions: function(q) {
+        var event = this.fire('query-headers', {
+          'type': 'request',
+          'query': q
+        }, {
+          composed: true,
+          cancelable: true
+        });
+        if (event.defaultPrevented) {
+          return event.detail.headers;
+        }
+        return [];
+      },
+      /**
+       * A handler called when the user selects a suggestion.
+       */
+      _onHeaderNameSelected: function(e) {
+        this.set('conditions.1.value', e.detail.value);
+        // this.$$('.name-change-input').fire('bind-value-changed');
+      },
+    });
+  </script>
+</dom-module>

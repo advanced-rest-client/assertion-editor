@@ -1,0 +1,323 @@
+<!--
+@license
+Copyright 2016 The Advanced REST client authors <arc@mulesoft.com>
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../arc-icons/arc-icons.html">
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../paper-listbox/paper-listbox.html">
+<link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../arc-definitions/arc-definitions.html">
+<link rel="import" href="../variables-evaluator/variables-context-builder-behavior.html">
+<link rel="import" href="assertion-status-code.html">
+<link rel="import" href="assertion-status-text.html">
+<link rel="import" href="assertion-headers.html">
+<link rel="import" href="assertion-payload.html">
+<!--
+`<assertion-editor>` Assertions editor~ that creates tests cases for a request
+
+### Example
+```
+<assertion-editor></assertion-editor>
+```
+
+### Styling
+`<assertion-editor>` provides the following custom properties and mixins for styling:
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--assertion-editor` | Mixin applied to the element | `{}`
+
+@group UI Elements
+@element assertion-editor
+@demo demo/index.html
+-->
+<dom-module id="assertion-editor">
+  <template>
+    <style>
+    :host {
+      display: block;
+      @apply --assertion-editor;
+      --assertion-editor-input-margin-right-value: var(--assertion-editor-input-margin-right, 12px);
+    }
+
+    .editor-line {
+      @apply --layout-horizontal;
+    }
+
+    .enabled-selector {
+      margin-top: 12px;
+    }
+
+    .input-selector {
+      margin-right: var(--assertion-editor-input-margin-right-value);
+    }
+    </style>
+    <template is="dom-repeat" items="{{model}}">
+      <div class="editor-line">
+        <paper-checkbox class="enabled-selector" checked="{{item.enabled}}"></paper-checkbox>
+        <paper-dropdown-menu class="input-selector" label="Input data" no-label-float on-selected-item-changed="_sourceTypeChanged">
+          <paper-listbox class="dropdown-content" selected="{{item.source}}" attr-for-selected="data-source">
+            <paper-item data-source="payload">Response body</paper-item>
+            <paper-item data-source="headers">Response headers</paper-item>
+            <paper-item data-source="status-code">Response status code</paper-item>
+            <paper-item data-source="status-text">Response status text</paper-item>
+          </paper-listbox>
+        </paper-dropdown-menu>
+        <template is="dom-if" if="[[item.isStatusCode]]">
+          <assertion-status-code conditions="{{item.conditions}}"></assertion-status-code>
+        </template>
+        <template is="dom-if" if="[[item.isStatusText]]">
+          <assertion-status-text conditions="{{item.conditions}}"></assertion-status-text>
+        </template>
+        <template is="dom-if" if="[[item.isPayload]]">
+          <assertion-payload conditions="{{item.conditions}}"></assertion-payload>
+        </template>
+        <template is="dom-if" if="[[item.isHeaders]]">
+          <assertion-headers conditions="{{item.conditions}}"></assertion-headers>
+        </template>
+      </div>
+    </template>
+    <div class="add-action">
+      <paper-icon-button icon="arc:add" on-tap="addItem" id="add"></paper-icon-button>
+      <label for="add">add assertion</label>
+    </div>
+    <arc-definitions></arc-definitions>
+  </template>
+  <script>
+  Polymer({
+    is: 'assertion-editor',
+
+    behaviors: [
+      ArcBehaviors.VariablesContextBuilderBehavior
+    ],
+
+    properties: {
+      // Generated model from the view.
+      model: {
+        type: Array,
+        notify: true
+      },
+      // Current request URL to build ATL spec. Defaults to: `/`
+      url: String,
+      // Current request method to build ATL spec. Defaults to: `GET`
+      method: String
+    },
+    /**
+     * Adds a new item to the  model
+     *
+     * @param {Object?} defaults Optional, model item defaults.
+     */
+    addItem: function(defaults) {
+      if (defaults instanceof Event) {
+        defaults = undefined;
+      }
+      defaults = defaults || {};
+      var modelItem = {
+        source: undefined, // assertion data sorce -> response headers / status etc
+        isStatusCode: false, // true if the data source is status code
+        isStatusText: false, // true if the data source is status text
+        isPayload: false, // true if the data source is the payload message
+        isHeaders: false, // true if the sata source is headers
+        enabled: true, // true if the assertion is enabled
+        conditions: [] // list of ordered conditions
+      };
+      if (defaults) {
+        modelItem = Object.assign(modelItem, defaults);
+      }
+      if (!this.model) {
+        this.set('model', [modelItem]);
+      } else {
+        this.push('model', modelItem);
+      }
+    },
+
+    /**
+     * Called when the user selects the data source in the UI selector.
+     * Updates the model depending on the selection.
+     */
+    _sourceTypeChanged: function(e) {
+      if (!e.detail.value) {
+        return;
+      }
+      var source = e.detail.value.dataset.source;
+      var item = e.model.get('item');
+      if (item.isStatusCode) {
+        e.model.set('item.isStatusCode', false);
+      }
+      if (item.isStatusText) {
+        e.model.set('item.isStatusText', false);
+      }
+      if (item.isPayload) {
+        e.model.set('item.isPayload', false);
+      }
+      if (item.isHeaders) {
+        e.model.set('item.isHeaders', false);
+      }
+      switch (source) {
+        case 'payload': e.model.set('item.isPayload', true); break;
+        case 'headers': e.model.set('item.isHeaders', true); break;
+        case 'status-code': e.model.set('item.isStatusCode', true); break;
+        case 'status-text': e.model.set('item.isStatusText', true); break;
+      }
+    },
+
+    getAtl: function() {
+      var model = this.model;
+      if (!model || !model.length) {
+        return Promise.resolve('');
+      }
+
+      var result = {
+        atl: '#%ATL 1.0\n'
+      };
+
+      return this.collectVariables()
+      .then(variables => this._appendAtlVariables(variables, result))
+      .then(() => this._appendAtlTests(model, result))
+      .then(() => result.atl);
+    },
+
+    collectVariables: function() {
+      return this.buildContext();
+    },
+    /**
+     * Appends `variables` section to the ATL spec.
+     *
+     * @param {Object} variables List of variables.
+     * @param {Object} obj Result object from `getAtl`
+     */
+    _appendAtlVariables: function(variables, obj) {
+      if (!variables) {
+        return;
+      }
+      var keys = Object.keys(variables);
+      if (!keys.length) {
+        return;
+      }
+      obj.atl += 'variables:\n';
+      keys.forEach(variable => {
+        obj.atl += '\t' + variable + ': ';
+        let value = this._valueType(variables[variable]);
+        let type = typeof value;
+        if (['boolean', 'number'].indexOf(type) !== -1 || value === null) {
+          obj.atl += value;
+        } else {
+          obj.atl += '"' + value + '"';
+        }
+        obj.atl += '\n';
+      });
+    },
+
+    _appendAtlTests: function(model, obj) {
+      obj.atl += 'tests:\n';
+      model.forEach(modelItem => this._modelItemToAtl(modelItem, obj));
+    },
+
+    _valueType: function(value) {
+      if (value === 'true') {
+        value = true;
+      }
+      if (value === 'false') {
+        value = false;
+      }
+      if (value === 'null') {
+        value = null;
+      }
+      if (!isNaN(value)) {
+        value = Number(value);
+      }
+      return value;
+    },
+
+    _modelItemToAtl: function(modelItem, obj) {
+      if (!modelItem.enabled) {
+        return;
+      }
+      switch (true) {
+        case modelItem.isStatusCode:
+          this._atlFromStatusCode(modelItem.conditions, obj);
+        break;
+        case modelItem.isStatusText:
+          this._atlFromStatusText(modelItem.conditions, obj);
+        break;
+        case modelItem.isPayload:
+          this._atlFromPayload(modelItem.conditions, obj);
+        break;
+        case modelItem.isHeaders:
+          this._atlFromHeaders(modelItem.conditions, obj);
+        break;
+      }
+    },
+
+    _atlTestHeader: function(title, obj) {
+      var url = this.url || '/';
+      var method = this.method || 'GET';
+      obj.atl += '\t"' + title + '"\n';
+      obj.atl += '\t\t' + method + ' ' + url + ':\n';
+      obj.atl += '\t\t\tresponse:\n';
+    },
+
+    _atlFromStatusCode: function(conditions, obj) {
+      this._atlTestHeader('Status code test', obj);
+      obj.atl += '\t\t\t\tstatus: ';
+      switch (conditions[0].value) {
+        case 'equals': obj.atl += conditions[1].value + '\n'; break;
+        default:
+          obj.atl += '\n\t\t\t\t\t' + conditions[0].value + ': ';
+          obj.atl += conditions[1].value + '\n';
+      }
+    },
+
+    _atlFromStatusText: function(conditions, obj) {
+      this._atlTestHeader('Status text test', obj);
+      obj.atl += '\t\t\t\tstatus-text: ';
+      switch (conditions[0].value) {
+        case 'equals': obj.atl += conditions[1].value + '\n'; break;
+        default:
+          obj.atl += '\n\t\t\t\t\t' + conditions[0].value + ': ';
+          obj.atl += conditions[1].value + '\n';
+      }
+    },
+
+    _atlFromHeaders: function(conditions, obj) {
+      this._atlTestHeader('Headers test', obj);
+      obj.atl += '\t\t\t\theaders: ';
+      switch (conditions[0].value) {
+        // Current ATL syntax
+        case 'is-empty':
+        case 'is-not-empty':
+          obj.atl += conditions[0].value + '\n';
+        break;
+        case 'value-of':
+          obj.atl += '\n\t\t\t\t\t';
+          obj.atl += conditions[1].value + ': ';
+          switch (conditions[2].value) {
+            case 'equals': obj.atl += conditions[3].value + '\n'; break;
+            default:
+              obj.atl += '\n\t\t\t\t\t\t' + conditions[2].value + ': ';
+              obj.atl += conditions[3].value + '\n';
+          }
+        break;
+        case 'contains':
+        case 'not-contains':
+          obj.atl += '\n\t\t\t\t\t' + conditions[0].value + ': ';
+          obj.atl += conditions[1].value + '\n';
+      }
+    }
+  });
+  </script>
+</dom-module>

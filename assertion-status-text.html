@@ -1,0 +1,63 @@
+<!--
+@license
+Copyright 2017 The Advanced REST client authors <arc@mulesoft.com>
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../paper-listbox/paper-listbox.html">
+<link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="assertion-styles.html">
+
+<dom-module id="assertion-status-text">
+  <template>
+    <style include="assertion-styles"></style>
+    <paper-dropdown-menu label="Condition" no-label-float class="text-equality-selector input">
+      <paper-listbox class="dropdown-content" selected="{{conditions.0.value}}" attr-for-selected="data-search">
+        <paper-item data-search="equals">Equals</paper-item>
+        <paper-item data-search="not-equals">Not equals</paper-item>
+        <paper-item data-search="contains">Contains</paper-item>
+        <paper-item data-search="not-contains">Not contains</paper-item>
+        <paper-item data-search="starts-with">Starts with</paper-item>
+        <paper-item data-search="ends-with">Ends with</paper-item>
+        <paper-item data-search="regexp">Regular expression</paper-item>
+      </paper-listbox>
+    </paper-dropdown-menu>
+    <paper-input label="Search value" no-label-float value="{{conditions.1.value}}" type="text" error-message="A value is required" required auto-validate></paper-input>
+  </template>
+  <script>
+    Polymer({
+      is: 'assertion-status-text',
+      properties: {
+        // List of conditions
+        conditions: {
+          type: Array,
+          notify: true,
+          observer: '_conditionsChanged'
+        }
+      },
+
+      _conditionsChanged: function(value) {
+        if (!value || !value.length) {
+          this.set('conditions', [{
+            type: 'content-search',
+            value: 'equals'
+          }, {
+            type: 'value',
+            value: ''
+          }]);
+        }
+      }
+    });
+  </script>
+</dom-module>
